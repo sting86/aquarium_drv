@@ -15,23 +15,36 @@
 #include "drv/port/port.h"
 
 static void _onKeyCbf (enum KbdKey key, enum KbdState state) {
-	char text[11];
+//	char text[21];
 
-	LCD_GoTo(0, 1);
-	snprintf(text, 11, "State: %3d", key);
-	LCD_WriteText(text);
+//	LCD_GoTo(0, 1);
+//	snprintf(text, 21, "Key: %2d, State: %d", key, state);
+//	LCD_WriteText(text);
 
+	static uint8_t i = 0;
+
+	if (state == KBD_STATE_KEY_DOWN) {
+		switch (key) {
+			case KBD_KEY_PUMP:
+				Peripherials_Set(PERIPH_PUMP, i);
+				i = !i;
+				break;
+
+			default:
+				break;
+		}
+	}
 }
 
 int main (void) {
 	//char text[81];
-	int i=0;
+//	int i=0;
 	struct Kbd kbd = {
 		.matrix = {
-				{KBD_KEY_0, KBD_KEY_1, KBD_KEY_2, KBD_KEY_UNDEFINIED},
-				{KBD_KEY_3, KBD_KEY_4, KBD_KEY_5, KBD_KEY_UNDEFINIED},
-				{KBD_KEY_6, KBD_KEY_7, KBD_KEY_8, KBD_KEY_UNDEFINIED},
-				{KBD_KEY_9, KBD_KEY_ENTER, KBD_KEY_CANCEL, KBD_KEY_UNDEFINIED},
+				{KBD_KEY_0,     KBD_KEY_MENU,   KBD_KEY_PUMP,       KBD_KEY_1},
+				{KBD_KEY_LEFT,  KBD_KEY_UP,     KBD_KEY_DAYLIGHT,   KBD_KEY_2},
+				{KBD_KEY_RIGHT, KBD_KEY_DOWN,   KBD_KEY_FEEDER,     KBD_KEY_3},
+				{KBD_KEY_ENTER, KBD_KEY_CANCEL, KBD_KEY_NIGHTLIGHT, KBD_KEY_4},
 		},
 		.callback = _onKeyCbf,
 	};
@@ -68,22 +81,14 @@ int main (void) {
 
 	LCD_WriteText(text);
 	Peripherials_Initialize();
-	//PIN_CONFIG(DDRA, PA6, PIN_INPUT);
 	Kbd_Initialize();
 	Kbd_Register(kbd, 0);
 
-	_onKeyCbf(KBD_KEY_UNDEFINIED, 0);
-
 	while (1)
 	{
-		//snprintf(&text[72], 9, "%8d ", i++);
-		///text[79] = (i++) + 0x30;
-		//i %= 10;
-
 		Kbd_Scan();
+
 		_delay_ms(200);
-		//PIN_SET(PORTA, PA6, 0);
-		//peripherials_set(PERIPH_PUMP, PERIPH_STATE_ON);
 	}
 
 	return 0;

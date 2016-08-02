@@ -8,7 +8,8 @@
 #ifndef DRV_PERIPHERAL_PERIPHERIALS_H_
 #define DRV_PERIPHERAL_PERIPHERIALS_H_
 
-#include "../../framework/error.h"
+#include "framework/error.h"
+#include "drv/port/port.h"
 
 enum periph_type {
 	PERIPH_PUMP,
@@ -17,8 +18,8 @@ enum periph_type {
 };
 
 enum periph_state {
-	PERIPH_STATE_ON,
-	PERIPH_STATE_OFF,
+	PERIPH_STATE_ON = OUT_LO,
+	PERIPH_STATE_OFF = OUT_HI,
 
 	PERIPH_STATE_COUNT
 };
