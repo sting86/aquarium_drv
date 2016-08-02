@@ -13,6 +13,8 @@
 
 enum periph_type {
 	PERIPH_PUMP,
+	PERIPH_NIGHTLIGHT,
+	PERIPH_FEEDER,
 
 	PERIPH_COUNT
 };

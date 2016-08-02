@@ -30,6 +30,16 @@ static void _onKeyCbf (enum KbdKey key, enum KbdState state) {
 				i = !i;
 				break;
 
+			case KBD_KEY_FEEDER:
+				Peripherials_Set(PERIPH_FEEDER, i);
+				i = !i;
+				break;
+
+			case KBD_KEY_NIGHTLIGHT:
+				Peripherials_Set(PERIPH_NIGHTLIGHT, i);
+				i = !i;
+				break;
+
 			default:
 				break;
 		}
@@ -41,10 +51,10 @@ int main (void) {
 //	int i=0;
 	struct Kbd kbd = {
 		.matrix = {
-				{KBD_KEY_0,     KBD_KEY_MENU,   KBD_KEY_PUMP,       KBD_KEY_1},
-				{KBD_KEY_LEFT,  KBD_KEY_UP,     KBD_KEY_DAYLIGHT,   KBD_KEY_2},
-				{KBD_KEY_RIGHT, KBD_KEY_DOWN,   KBD_KEY_FEEDER,     KBD_KEY_3},
-				{KBD_KEY_ENTER, KBD_KEY_CANCEL, KBD_KEY_NIGHTLIGHT, KBD_KEY_4},
+				{KBD_KEY_UNDEFINIED, KBD_KEY_MENU,   KBD_KEY_PUMP,       KBD_KEY_UNDEFINIED},
+				{KBD_KEY_LEFT,       KBD_KEY_UP,     KBD_KEY_DAYLIGHT,   KBD_KEY_UNDEFINIED},
+				{KBD_KEY_RIGHT,      KBD_KEY_DOWN,   KBD_KEY_FEEDER,     KBD_KEY_UNDEFINIED},
+				{KBD_KEY_ENTER,      KBD_KEY_CANCEL, KBD_KEY_NIGHTLIGHT, KBD_KEY_UNDEFINIED},
 		},
 		.callback = _onKeyCbf,
 	};

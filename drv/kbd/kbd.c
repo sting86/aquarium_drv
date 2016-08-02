@@ -95,19 +95,7 @@ Error Kbd_Scan () {
 					break;
 			}
 			_delay_us(200);
-//			snprintf(dbg, 21, "Scan %d", COLUMN1_PIN & (1<<COLUMN1));
-//			_debug(dbg, 0);
-//			if (!(COLUMN1_PIN & (1<<COLUMN1))) {
-//				if ((scanState & (1<<scanMap[i][0])) == 0) {
-//					scanState |= (1<<scanMap[i][0]);
-//					currentKeyboard.callback(currentKeyboard.matrix[scanState&(i<<4)][scanState&(i<<0)], KBD_STATE_KEY_DOWN);
-//				}
-//			} else {
-//				if (scanState & (1<<scanMap[i][0])) {
-//					scanState &= ~(1<<scanMap[i][0]);
-//					currentKeyboard.callback(currentKeyboard.matrix[scanState&(i<<4)][scanState&(i<<0)], KBD_STATE_KEY_UP);
-//				}
-//			}
+
 			//TODO: simplicity - only set bits, not need to clear, cause scanTemp is already initialized as 0
 			if (!(COLUMN1_PIN & (1<<COLUMN1))) {
 				scanTemp |= (1<<scanMap[i][0]);
