@@ -6,6 +6,7 @@
  */
 
 #include "avr/io.h"
+#include "avr/interrupt.h"
 #include "util/delay.h"
 
 #include "drv/drv_time.h"
@@ -13,6 +14,7 @@
 #include "drv/peripheral/peripherials.h"
 #include "drv/kbd/kbd.h"
 #include "drv/port/port.h"
+#include "drv/rtc/rtc.h"
 
 static void _onKeyCbf (enum KbdKey key, enum KbdState state) {
 //	char text[21];
@@ -46,10 +48,22 @@ static void _onKeyCbf (enum KbdKey key, enum KbdState state) {
 	}
 }
 
+void _onTimeCbf() {
+	char text[21];
+	static uint16_t i = 0;
+	struct RTC_Time time = {0};
+
+	RTC_GetTime(&time);
+
+	LCD_GoTo(0, 2);
+	snprintf(text, 21, "t[%04d] = %02d:%02d:%02d     ", ++i, time.hour, time.min, time.sec);
+	LCD_WriteText(text);
+}
+
 int main (void) {
 	//char text[81];
 //	int i=0;
-	struct Kbd kbd = {
+	static struct Kbd kbd = {
 		.matrix = {
 				{KBD_KEY_UNDEFINIED, KBD_KEY_MENU,   KBD_KEY_PUMP,       KBD_KEY_UNDEFINIED},
 				{KBD_KEY_LEFT,       KBD_KEY_UP,     KBD_KEY_DAYLIGHT,   KBD_KEY_UNDEFINIED},
@@ -57,6 +71,10 @@ int main (void) {
 				{KBD_KEY_ENTER,      KBD_KEY_CANCEL, KBD_KEY_NIGHTLIGHT, KBD_KEY_UNDEFINIED},
 		},
 		.callback = _onKeyCbf,
+	};
+
+	static struct RTC_init rtcInitParams = {
+		.onSecChangedCbf = _onTimeCbf,
 	};
 
 	char text[81]="ABCDEFGHIJKLMNOPRSTW"
@@ -87,11 +105,14 @@ int main (void) {
 
 	}
 
+	sei();
+
 	LCD_Initalize();
 
 	LCD_WriteText(text);
 	Peripherials_Initialize();
 	Kbd_Initialize();
+	RTC_Initialize(&rtcInitParams);
 	Kbd_Register(kbd, 0);
 
 	while (1)

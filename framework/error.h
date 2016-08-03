@@ -22,6 +22,8 @@ typedef enum {
 	ERROR_INSUFFICIENT_BUFFER, //no more space in buffer
 	ERROR_BUFFER_NULL,
 
+	ERROR_UNINITIALIZED,
+
 	ERROR_COUNT
 } Error;
 

@@ -8,7 +8,7 @@
 #ifndef DRV_DRV_TIME_H_
 #define DRV_DRV_TIME_H_
 
-#include "../framework/error.h"
+#include "framework/error.h"
 
 typedef struct time TTime;
 
