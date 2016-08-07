@@ -42,6 +42,70 @@ static void _onKeyCbf (enum KbdKey key, enum KbdState state) {
 				i = !i;
 				break;
 
+			case KBD_KEY_LEFT: {
+				struct RTC_Time time = {0};
+				RTC_GetTime(&time);
+				if (time.min>=5) time.min = time.min - 5; else time.min = 64 - time.min - 5;
+				RTC_SetTime(&time);
+				break;
+			}
+
+			case KBD_KEY_UP: {
+				struct RTC_Time time = {0};
+				RTC_GetTime(&time);
+				time.min = (time.min + 5)%60;
+				RTC_SetTime(&time);
+				break;
+			}
+
+			case KBD_KEY_RIGHT: {
+				struct RTC_Time time = {0};
+				RTC_GetTime(&time);
+				if (time.hour>=1) --time.hour; else time.hour = 23;
+				RTC_SetTime(&time);
+				break;
+			}
+
+			case KBD_KEY_DOWN: {
+				struct RTC_Time time = {0};
+				RTC_GetTime(&time);
+				time.hour = (time.hour + 1)%24;
+				RTC_SetTime(&time);
+				break;
+			}
+
+			case KBD_KEY_ENTER: {
+				struct RTC_Time time = {0};
+				RTC_GetTime(&time);
+				if (time.day>=2) --time.day; else time.day = 29;//TODO: should be max
+				RTC_SetTime(&time);
+				break;
+			}
+
+			case KBD_KEY_CANCEL: {
+				struct RTC_Time time = {0};
+				RTC_GetTime(&time);
+				time.day = (time.day)%29 + 1;
+				RTC_SetTime(&time);
+				break;
+			}
+
+			case KBD_KEY_MENU: {
+				struct RTC_Time time = {0};
+				RTC_GetTime(&time);
+				time.month = (time.month)%12 + 1;
+				RTC_SetTime(&time);
+				break;
+			}
+
+			case KBD_KEY_DAYLIGHT: {
+				struct RTC_Time time = {0};
+				RTC_GetTime(&time);
+				++time.year;
+				RTC_SetTime(&time);
+				break;
+			}
+
 			default:
 				break;
 		}
@@ -50,13 +114,12 @@ static void _onKeyCbf (enum KbdKey key, enum KbdState state) {
 
 void _onTimeCbf() {
 	char text[21];
-	static uint16_t i = 0;
 	struct RTC_Time time = {0};
 
 	RTC_GetTime(&time);
 
 	LCD_GoTo(0, 2);
-	snprintf(text, 21, "t[%04d] = %02d:%02d:%02d     ", ++i, time.hour, time.min, time.sec);
+	snprintf(text, 21, "%04d-%02d-%02d %02d:%02d:%02d ", (uint16_t)time.year + RTC_BASE_YEAR, time.month, time.day, time.hour, time.min, time.sec);
 	LCD_WriteText(text);
 }
 
@@ -77,6 +140,7 @@ int main (void) {
 		.onSecChangedCbf = _onTimeCbf,
 	};
 
+	//TODO: Refactor LCD driver: add correction to write, change of mode (with/without cursor etc.)
 	char text[81]="ABCDEFGHIJKLMNOPRSTW"
 	              "NIE TA LINIA :(     "
 	              "                    "
@@ -119,7 +183,7 @@ int main (void) {
 	{
 		Kbd_Scan();
 
-		_delay_ms(200);
+		//_delay_ms(200);
 	}
 
 	return 0;

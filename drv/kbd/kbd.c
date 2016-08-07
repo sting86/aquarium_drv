@@ -49,7 +49,7 @@ bool redisterd = false;
 
 uint16_t scanState = 0;
 
-void _debug(char *txt, uint8_t line) {
+static void _debug(char *txt, uint8_t line) {
 	LCD_GoTo(0, line);
 	LCD_WriteText("                    ");
 	LCD_GoTo(0, line);
