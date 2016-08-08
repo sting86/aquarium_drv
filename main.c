@@ -77,7 +77,7 @@ static void _onKeyCbf (enum KbdKey key, enum KbdState state) {
 			case KBD_KEY_ENTER: {
 				struct RTC_Time time = {0};
 				RTC_GetTime(&time);
-				if (time.day>=2) --time.day; else time.day = 29;//TODO: should be max
+				if (time.day>=2) --time.day; else time.day = 31;//TODO: should be max
 				RTC_SetTime(&time);
 				break;
 			}
@@ -85,7 +85,7 @@ static void _onKeyCbf (enum KbdKey key, enum KbdState state) {
 			case KBD_KEY_CANCEL: {
 				struct RTC_Time time = {0};
 				RTC_GetTime(&time);
-				time.day = (time.day)%29 + 1;
+				time.day = (time.day)%31 + 1;
 				RTC_SetTime(&time);
 				break;
 			}
@@ -115,11 +115,12 @@ static void _onKeyCbf (enum KbdKey key, enum KbdState state) {
 void _onTimeCbf() {
 	char text[21];
 	struct RTC_Time time = {0};
+	const char* dow = RTC_GetDayName(RTC_GetDayOfWeek());
 
 	RTC_GetTime(&time);
 
 	LCD_GoTo(0, 2);
-	snprintf(text, 21, "%04d-%02d-%02d %02d:%02d:%02d ", (uint16_t)time.year + RTC_BASE_YEAR, time.month, time.day, time.hour, time.min, time.sec);
+	snprintf(text, 21, "%s%04d%02d%02d %02d:%02d:%02d ", dow, (uint16_t)time.year + RTC_BASE_YEAR, time.month, time.day, time.hour, time.min, time.sec);
 	LCD_WriteText(text);
 }
 
