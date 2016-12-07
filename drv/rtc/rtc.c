@@ -21,7 +21,7 @@
 #define _BASE_YEAR_IS_LEAP false
 
 //seconds from 1.1.2010
-volatile uint32_t timestamp = _DAY*31;//0 + 23*_HOUR + 59*_MIN + 50; //04-08-2016 05:15:21
+volatile uint32_t timestamp = _DAY;//0 + 23*_HOUR + 59*_MIN + 50; //04-08-2016 05:15:21
 bool initialized = false;
 
 uint8_t daysInMonths[] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
@@ -115,11 +115,10 @@ uint8_t _getYear(uint16_t *daysInYear) {
 
 uint8_t _getMonth(uint16_t dayInYear, bool isLeapYear, uint8_t *daysInMonth) {
 	uint8_t i = 1;
-	//uint16_t temp = 0;//daysInMonths[0];
 
-	if (dayInYear > 365 + isLeapYear) return 0;
+	if (dayInYear > 365 + ( isLeapYear ? 1 : 0 )) return 0;
 
-	while (dayInYear >= (daysPassedTillMonth[i])+ ((isLeapYear)?(leapsInMonths[i-1]):0)) {
+	while (dayInYear > (daysPassedTillMonth[i])+ ((isLeapYear)?(leapsInMonths[i]):0)) {
 		++i;
 	}
 
@@ -127,7 +126,7 @@ uint8_t _getMonth(uint16_t dayInYear, bool isLeapYear, uint8_t *daysInMonth) {
 //	_debug(dbg, 3);
 
 	if (daysInMonth != NULL) {
-		*daysInMonth = (uint8_t) (dayInYear - (daysPassedTillMonth[i-1]+ ((isLeapYear)?(leapsInMonths[i-1]):0)) + 1);
+		*daysInMonth = (uint8_t) (dayInYear - (daysPassedTillMonth[i-1]+ ((isLeapYear)?(leapsInMonths[i-1]):0)));
 	}
 
 	snprintf(dbg, 21, "m%d dy%d dp%d dim%d, %d", i, dayInYear, daysPassedTillMonth[i-1], *daysInMonth, ((isLeapYear)?(leapsInMonths[i-1]):0));
@@ -158,7 +157,7 @@ uint8_t _getExtraDaysTill(struct RTC_Time *time) {
 Error RTC_GetTime (struct RTC_Time *time) {
 	Error ret = NO_ERROR;
 	uint16_t d;
-	uint8_t d2;
+	uint8_t d2 = 0;
 
 	if (time != NULL && initialized) {
 		time->sec = timestamp%60;
@@ -191,7 +190,7 @@ Error RTC_SetTime (struct RTC_Time *time) {
 		timestamp += (uint32_t) time->min * _MIN;
 		timestamp += (uint32_t) time->hour * _HOUR;
 
-		timestamp += (uint32_t) (time->day-1) * _DAY;
+		timestamp += (uint32_t) (time->day) * _DAY;
 		timestamp += (uint32_t) daysPassedTillMonth[(time->month-1)%12] * _DAY;
 		timestamp += (uint32_t) time->year * _DAY * 365;
 		timestamp += (uint32_t) _getExtraDaysTill(time) * _DAY;
@@ -215,5 +214,5 @@ const char* RTC_GetDayName(uint8_t dayOfWeek) {
 }
 
 uint8_t RTC_GetDayOfWeek() {
-	return  (timestamp/(_DAY))%7+4;
+	return  (timestamp/(_DAY))%7+3;
 }
