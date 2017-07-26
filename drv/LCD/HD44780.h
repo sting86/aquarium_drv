@@ -6,6 +6,7 @@
 // Mikrokontroler : Atmel AVR
 // Kompilator : avr-gcc
 // Autor : Rados≥aw KwiecieÒ
+// Modyfikacje: Pawe≥ Po≥eÊ
 // èrÛd≥o : http://radzio.dxp.pl/hd44780/
 // Data : 24.03.2007
 //-------------------------------------------------------------------------------------------------

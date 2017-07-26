@@ -11,6 +11,9 @@
 //-------------------------------------------------------------------------------------------------
 
 #include "HD44780.h"
+
+volatile unsigned char LCD_LOCKED = 0;
+
 //-------------------------------------------------------------------------------------------------
 //
 // Funkcja wystawiaj¹ca pó³bajt na magistralê danych
@@ -80,8 +83,13 @@ _LCD_Write(dataToWrite);
 //-------------------------------------------------------------------------------------------------
 void LCD_WriteText(char * text)
 {
+	while (LCD_LOCKED);
+
+	LCD_LOCKED = 1;
 while(*text)
   LCD_WriteData(*text++);
+
+LCD_LOCKED = 0;
 }
 //-------------------------------------------------------------------------------------------------
 //
@@ -90,8 +98,13 @@ while(*text)
 //-------------------------------------------------------------------------------------------------
 void LCD_GoTo(unsigned char x, unsigned char y)
 {
+	while (LCD_LOCKED);
+
+	LCD_LOCKED = 1;
 //LCD_WriteCommand(HD44780_DDRAM_SET | (x + (0x40 * y)));
 	LCD_WriteCommand(HD44780_DDRAM_SET | ((x + ((0x40 * (y & 0b01)) + (quantiti_of_characters * ((y & 0b10)>>1))))));	//dla wyswietlacza 4x20 znakow
+
+	LCD_LOCKED = 0;
 }
 //-------------------------------------------------------------------------------------------------
 //

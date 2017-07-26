@@ -15,6 +15,7 @@
 #include "drv/kbd/kbd.h"
 #include "drv/port/port.h"
 #include "drv/rtc/rtc.h"
+#include "drv/1wire/1wire.h"
 
 static void _onKeyCbf (enum KbdKey key, enum KbdState state) {
 //	char text[21];
@@ -170,15 +171,36 @@ int main (void) {
 
 	}
 
+	_delay_ms(500);
+	LCD_Initalize();
+
 	sei();
 
-	LCD_Initalize();
 
 	LCD_WriteText(text);
 	Peripherials_Initialize();
 	Kbd_Initialize();
 	RTC_Initialize(&rtcInitParams);
 	Kbd_Register(kbd, 0);
+
+//	PIN_CONFIG(DDRB, PB2, PIN_OUTPUT); //DS1820
+//	while (1)
+//	{
+//		PIN_SET(PORTB, PB2, OUT_HI);
+//		_delay_us(400);
+//		PIN_SET(PORTB, PB2, OUT_LO);
+//		_delay_us(400);
+//	}
+	OW_Initialize();
+
+	//PIN_CONFIG(DDRA, PA0, PIN_OUTPUT); //DS1820
+	while (1)
+	{
+		OW_Magic();
+
+
+		_delay_ms(1000);
+	}
 
 	while (1)
 	{

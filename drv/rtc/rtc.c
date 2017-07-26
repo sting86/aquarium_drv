@@ -21,7 +21,7 @@
 #define _BASE_YEAR_IS_LEAP false
 
 //seconds from 1.1.2010
-volatile uint32_t timestamp = _DAY;//0 + 23*_HOUR + 59*_MIN + 50; //04-08-2016 05:15:21
+static volatile uint32_t timestamp = _DAY;//0 + 23*_HOUR + 59*_MIN + 50; //04-08-2016 05:15:21
 bool initialized = false;
 
 uint8_t daysInMonths[] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
@@ -129,8 +129,8 @@ uint8_t _getMonth(uint16_t dayInYear, bool isLeapYear, uint8_t *daysInMonth) {
 		*daysInMonth = (uint8_t) (dayInYear - (daysPassedTillMonth[i-1]+ ((isLeapYear)?(leapsInMonths[i-1]):0)));
 	}
 
-	snprintf(dbg, 21, "m%d dy%d dp%d dim%d, %d", i, dayInYear, daysPassedTillMonth[i-1], *daysInMonth, ((isLeapYear)?(leapsInMonths[i-1]):0));
-	_debug(dbg, 3);
+//	snprintf(dbg, 21, "m%d dy%d dp%d dim%d, %d", i, dayInYear, daysPassedTillMonth[i-1], *daysInMonth, ((isLeapYear)?(leapsInMonths[i-1]):0));
+//	_debug(dbg, 3);
 
 	return i;
 }

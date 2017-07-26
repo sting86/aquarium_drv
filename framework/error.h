@@ -24,6 +24,9 @@ typedef enum {
 
 	ERROR_UNINITIALIZED,
 
+	ERROR_BUS_ERROR,
+	ERROR_CRC_ERROR,
+
 	ERROR_COUNT
 } Error;
 
