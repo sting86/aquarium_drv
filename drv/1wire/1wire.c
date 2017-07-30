@@ -44,9 +44,10 @@ Error OW_Initialize() {
 
 
 Error OW_Magic() {
-	bool b;
+//	bool b;
 	char text[21];
 	Error ret;
+	static uint32_t i = 0;
 //	_1w_reset();
 //	b = _1w_isDevice();
 	struct OW_device list[2];
@@ -58,11 +59,14 @@ Error OW_Magic() {
 
 	if (cnt>0) {
 		LCD_GoTo(0, 1);
-		snprintf(text, 21, "%02X%02X%02X%02X%02X%02X%02X%02X %d%02X", list[0].dev.id[7], list[0].dev.id[6], list[0].dev.id[5], list[0].dev.id[4], list[0].dev.id[3], list[0].dev.id[2], list[0].dev.id[1], list[0].dev.id[0], ret, list[0].dev.laseredRom.family);
+		snprintf(text, 21, "%02X%02X%02X%02X%02X%02X%02X%02X %d%02X", list[0].dev.id[0], list[0].dev.id[1], list[0].dev.id[2], list[0].dev.id[3], list[0].dev.id[4], list[0].dev.id[5], list[0].dev.id[6], list[0].dev.id[7], ret, list[0].dev.laseredRom.family);
 		LCD_WriteText(text);
 		LCD_GoTo(0, 3);
 		snprintf(text, 21, "A: %08lx 0x%02X", (uint32_t) list[0].dev.laseredRom.sn, crc8(list[0].dev.id, 7));
 		LCD_WriteText(text);
+//		LCD_GoTo(0, 3);
+//		snprintf(text, 21, "A: %-15ld", ++i);
+//		LCD_WriteText(text);
 	} else {
 		LCD_GoTo(0, 1);
 		snprintf(text, 21, "No device found :(");
@@ -171,7 +175,7 @@ static Error _1w_searchRom(struct OW_device* deviceList, uint8_t *cnt /*in-out*/
 				if (bit != compl) {
 					foundDevice.dev.devFullID |= ((uint64_t)bit<<bitNo);
 					_1w_sendBit(bit);
-				} else {
+				} else {//TODO: here should be the magic with finding another devices in another branches
 					_1w_sendBit(0);
 				}
 				++bitNo;
@@ -179,7 +183,7 @@ static Error _1w_searchRom(struct OW_device* deviceList, uint8_t *cnt /*in-out*/
 				ret = ERROR_BUS_ERROR;
 				break;
 			}
-		} while (bitNo < 63);
+		} while (bitNo < 64);
 
 		if (foundDevice.dev.devFullID != 0 && deviceNo < *cnt) {
 			deviceList[deviceNo].dev.devFullID = foundDevice.dev.devFullID;

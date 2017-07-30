@@ -180,7 +180,7 @@ int main (void) {
 	LCD_WriteText(text);
 	Peripherials_Initialize();
 	Kbd_Initialize();
-	RTC_Initialize(&rtcInitParams);
+//	RTC_Initialize(&rtcInitParams);
 	Kbd_Register(kbd, 0);
 
 //	PIN_CONFIG(DDRB, PB2, PIN_OUTPUT); //DS1820
