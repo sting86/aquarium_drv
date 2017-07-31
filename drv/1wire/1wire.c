@@ -35,6 +35,11 @@ static Error _1w_searchRom(struct OW_device* deviceList, uint8_t *cnt);
 
 #define WAIT()__asm__ __volatile__ ("nop")
 
+struct owSearchStatus {
+	uint8_t lastValue    :1;
+	uint8_t forkDetected :1;
+};
+
 Error OW_Initialize() {
 
 	_1W_ONE();
@@ -47,7 +52,6 @@ Error OW_Magic() {
 //	bool b;
 	char text[21];
 	Error ret;
-	static uint32_t i = 0;
 //	_1w_reset();
 //	b = _1w_isDevice();
 	struct OW_device list[2];
@@ -62,7 +66,8 @@ Error OW_Magic() {
 		snprintf(text, 21, "%02X%02X%02X%02X%02X%02X%02X%02X %d%02X", list[0].dev.id[0], list[0].dev.id[1], list[0].dev.id[2], list[0].dev.id[3], list[0].dev.id[4], list[0].dev.id[5], list[0].dev.id[6], list[0].dev.id[7], ret, list[0].dev.laseredRom.family);
 		LCD_WriteText(text);
 		LCD_GoTo(0, 3);
-		snprintf(text, 21, "A: %08lx 0x%02X", (uint32_t) list[0].dev.laseredRom.sn, crc8(list[0].dev.id, 7));
+		//snprintf(text, 21, "A: %08lx 0x%02X", (uint32_t) list[0].dev.laseredRom.sn, crc8(list[0].dev.id, 7));
+		snprintf(text, 21, "%02X%02X%02X%02X%02X%02X%02X%02X %d%02X", list[1].dev.id[0], list[1].dev.id[1], list[1].dev.id[2], list[1].dev.id[3], list[1].dev.id[4], list[1].dev.id[5], list[1].dev.id[6], list[1].dev.id[7], ret, list[1].dev.laseredRom.family);
 		LCD_WriteText(text);
 //		LCD_GoTo(0, 3);
 //		snprintf(text, 21, "A: %-15ld", ++i);
@@ -139,7 +144,7 @@ static Error _1w_readBit(uint8_t *bit) {
 
 static Error _1w_sendByte(uint8_t byte) {
 	Error ret = NO_ERROR;
-	uint8_t i;
+	int8_t i;
 	for (i=0; i<8; ++i) {
 		ret |= _1w_sendBit(byte&(1<<i));
 	}
@@ -151,16 +156,33 @@ static Error _1w_searchRom(struct OW_device* deviceList, uint8_t *cnt /*in-out*/
 	Error ret = NO_ERROR;
 	uint8_t bit, compl;
 	uint8_t bitNo = 0, deviceNo = 0;
+	int8_t i;
+	uint8_t repeatIndex = 0;
+	bool stop = false;
 	struct OW_device foundDevice = {.dev.devFullID = 0};
+	static struct owSearchStatus status[64] = {0};
 
-	while (1) {
+	do {
 		bool b;
+
+		foundDevice.dev.devFullID = 0;
+
 		_1w_reset();
 		b = _1w_isDevice();
 
 		if (!b) break; //there is no more devices to find.
 
 		_1w_sendByte(CMD_SEARCH_ROM);
+
+		if (repeatIndex) {
+			for (i=0; i<=repeatIndex; ++i) {
+				_1w_readBit(&bit);
+				_1w_readBit(&compl);
+				_1w_sendBit(status[i].lastValue);
+				foundDevice.dev.devFullID |= ((uint64_t)status[i].lastValue<<i);
+			}
+			bitNo = repeatIndex+1;
+		}
 
 		do {
 			_1w_readBit(&bit);
@@ -175,8 +197,18 @@ static Error _1w_searchRom(struct OW_device* deviceList, uint8_t *cnt /*in-out*/
 				if (bit != compl) {
 					foundDevice.dev.devFullID |= ((uint64_t)bit<<bitNo);
 					_1w_sendBit(bit);
+					status[bitNo].lastValue = bit;
 				} else {//TODO: here should be the magic with finding another devices in another branches
-					_1w_sendBit(0);
+					//_1w_sendBit(0);
+					if (status[bitNo].forkDetected == 0) {
+						status[bitNo].forkDetected = 1;
+						status[bitNo].lastValue = 1;
+						foundDevice.dev.devFullID |= ((uint64_t)1<<bitNo);
+						_1w_sendBit(1);
+					} else {
+						status[bitNo].lastValue = 0;
+						_1w_sendBit(0);
+					}
 				}
 				++bitNo;
 			} else {
@@ -185,12 +217,25 @@ static Error _1w_searchRom(struct OW_device* deviceList, uint8_t *cnt /*in-out*/
 			}
 		} while (bitNo < 64);
 
+		//find open fork
+		for (i=bitNo-1; i>=0; --i) {
+			if (status[i].forkDetected) {
+				if (status[i].lastValue == 0) {
+					status[i].forkDetected = 0;
+				} else {
+					status[i].lastValue = 0;
+					repeatIndex = i;
+					break;
+				}
+			}
+		}
+		if (i<0) stop = true;
+
 		if (foundDevice.dev.devFullID != 0 && deviceNo < *cnt) {
 			deviceList[deviceNo].dev.devFullID = foundDevice.dev.devFullID;
 		}
 		++deviceNo;
-		break;
-	}
+	} while (!stop);
 
 	*cnt = deviceNo;
 

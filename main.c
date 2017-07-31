@@ -17,6 +17,8 @@
 #include "drv/rtc/rtc.h"
 #include "drv/1wire/1wire.h"
 
+bool updateTime = false;
+
 static void _onKeyCbf (enum KbdKey key, enum KbdState state) {
 //	char text[21];
 
@@ -114,15 +116,8 @@ static void _onKeyCbf (enum KbdKey key, enum KbdState state) {
 }
 
 void _onTimeCbf() {
+	updateTime = true;
 	char text[21];
-	struct RTC_Time time = {0};
-	const char* dow = RTC_GetDayName(RTC_GetDayOfWeek());
-
-	RTC_GetTime(&time);
-
-	LCD_GoTo(0, 2);
-	snprintf(text, 21, "%s%04d%02d%02d %02d:%02d:%02d ", dow, (uint16_t)time.year + RTC_BASE_YEAR, time.month, time.day, time.hour, time.min, time.sec);
-	LCD_WriteText(text);
 }
 
 int main (void) {
@@ -180,7 +175,7 @@ int main (void) {
 	LCD_WriteText(text);
 	Peripherials_Initialize();
 	Kbd_Initialize();
-//	RTC_Initialize(&rtcInitParams);
+	RTC_Initialize(&rtcInitParams);
 	Kbd_Register(kbd, 0);
 
 //	PIN_CONFIG(DDRB, PB2, PIN_OUTPUT); //DS1820
@@ -193,9 +188,18 @@ int main (void) {
 //	}
 	OW_Initialize();
 
-	//PIN_CONFIG(DDRA, PA0, PIN_OUTPUT); //DS1820
 	while (1)
 	{
+		if (updateTime) {
+			struct RTC_Time time = {0};
+			const char* dow = RTC_GetDayName(RTC_GetDayOfWeek());
+
+			RTC_GetTime(&time);
+
+			LCD_GoTo(0, 2);
+			snprintf(text, 21, "%s%04d%02d%02d %02d:%02d:%02d ", dow, (uint16_t)time.year + RTC_BASE_YEAR, time.month, time.day, time.hour, time.min, time.sec);
+			LCD_WriteText(text);
+		}
 		OW_Magic();
 
 
