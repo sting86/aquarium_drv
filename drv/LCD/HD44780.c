@@ -11,6 +11,7 @@
 //-------------------------------------------------------------------------------------------------
 
 #include "HD44780.h"
+#include "avr/pgmspace.h"
 
 volatile unsigned char LCD_LOCKED = 0;
 
@@ -81,7 +82,7 @@ _LCD_Write(dataToWrite);
 // Funkcja wyœwietlenia napisu na wyswietlaczu.
 //
 //-------------------------------------------------------------------------------------------------
-void LCD_WriteText(char * text)
+void LCD_WriteText(const char * text)
 {
 	while (LCD_LOCKED);
 
@@ -90,6 +91,24 @@ while(*text)
   LCD_WriteData(*text++);
 
 LCD_LOCKED = 0;
+}
+
+//-------------------------------------------------------------------------------------------------
+//
+// Odpowiednik LCD_WriteText pracuj¹cy na pamiêci FLASH
+//
+//-------------------------------------------------------------------------------------------------
+void LCD_WriteTextP(const char * text)
+{
+	while (LCD_LOCKED);
+	LCD_LOCKED = 1;
+
+	register char c;
+
+	while((c = pgm_read_byte(text++)))
+		LCD_WriteData(c);
+
+	LCD_LOCKED = 0;
 }
 //-------------------------------------------------------------------------------------------------
 //

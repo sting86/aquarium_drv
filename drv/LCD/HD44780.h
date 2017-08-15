@@ -97,7 +97,8 @@
 
 void LCD_WriteCommand(unsigned char);
 void LCD_WriteData(unsigned char);
-void LCD_WriteText(char *);
+void LCD_WriteText(const char *);
+void LCD_WriteTextP(const char *);
 void LCD_GoTo(unsigned char, unsigned char);
 void LCD_Clear(void);
 void LCD_Home(void);

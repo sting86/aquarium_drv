@@ -8,6 +8,7 @@
 #include "avr/io.h"
 #include "avr/interrupt.h"
 #include "util/delay.h"
+#include "avr/pgmspace.h"
 
 #include "drv/drv_time.h"
 #include "drv/LCD/HD44780.h"
@@ -117,7 +118,6 @@ static void _onKeyCbf (enum KbdKey key, enum KbdState state) {
 
 void _onTimeCbf() {
 	updateTime = true;
-	char text[21];
 }
 
 int main (void) {
@@ -138,7 +138,7 @@ int main (void) {
 	};
 
 	//TODO: Refactor LCD driver: add correction to write, change of mode (with/without cursor etc.)
-	char text[81]="ABCDEFGHIJKLMNOPRSTW"
+	const static char text[81] PROGMEM  ="ABCDEFGHIJKLMNOPRSTW"
 	              "NIE TA LINIA :(     "
 	              "                    "
 		          "Maciek mowi:        ";//PRSTUVWXYZabcdefghijklmnoprstuvwxyz1234567890 [];'\\,./!@#$%^&*()`";
@@ -171,8 +171,9 @@ int main (void) {
 
 	sei();
 
+	//pgm_read_byte()
 
-	LCD_WriteText(text);
+	LCD_WriteTextP(text);
 	Peripherials_Initialize();
 	Kbd_Initialize();
 	RTC_Initialize(&rtcInitParams);
@@ -191,19 +192,22 @@ int main (void) {
 	while (1)
 	{
 		if (updateTime) {
+			char text[21];
+
 			struct RTC_Time time = {0};
-			const char* dow = RTC_GetDayName(RTC_GetDayOfWeek());
+			PGM_P const dow = RTC_GetDayName(RTC_GetDayOfWeek());
 
 			RTC_GetTime(&time);
 
 			LCD_GoTo(0, 2);
-			snprintf(text, 21, "%s%04d%02d%02d %02d:%02d:%02d ", dow, (uint16_t)time.year + RTC_BASE_YEAR, time.month, time.day, time.hour, time.min, time.sec);
+			snprintf_P(text, 21, PSTR("%S%04d%02d%02d %02d:%02d:%02d "), (dow), (uint16_t)time.year + RTC_BASE_YEAR, time.month, time.day, time.hour, time.min, time.sec);
 			LCD_WriteText(text);
+			updateTime = false;
 		}
 		OW_Magic();
 
 
-		_delay_ms(1000);
+		_delay_ms(100);
 	}
 
 	while (1)

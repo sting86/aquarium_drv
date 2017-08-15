@@ -6,7 +6,9 @@
  */
 
 #include "rtc.h"
+#include "avr/io.h"
 #include "avr/interrupt.h"
+#include "avr/pgmspace.h"
 #include "drv/port/port.h"
 #include "drv/LCD/HD44780.h"
 
@@ -28,14 +30,33 @@ uint8_t daysInMonths[] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
 uint16_t daysPassedTillMonth[] = { 0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334 };
 uint8_t leapsInMonths[] = { 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 };
 
-char *daysName[] = {"Pn", "Wt", "Sr", "Cz", "Pt", "So", "Nd"};
+//const char *daysName[]  = { "Pn" , "Wt", "Sr", "Cz", "Pt", "So", "Nd"};
+
+const char mon[] PROGMEM = "Pn";
+const char tue[] PROGMEM = "Wt";
+const char wed[] PROGMEM = "Sr";
+const char thu[] PROGMEM = "Cz";
+const char fri[] PROGMEM = "Pt";
+const char sat[] PROGMEM = "So";
+const char son[] PROGMEM = "Nd";
+
+
+PGM_P const daysName[] PROGMEM =
+{
+	mon,
+	tue,
+	wed,
+	thu,
+	fri,
+	sat,
+	son
+};
+
 
 struct RTC_init lastInitParams = {0};
 
 ISR(TIMER2_COMP_vect, ISR_NOBLOCK) {
 	++timestamp;
-
-	//timestamp += 60;
 
 	if (lastInitParams.onSecChangedCbf != NULL) {
 		lastInitParams.onSecChangedCbf();
@@ -210,7 +231,7 @@ Error RTC_SetTime (struct RTC_Time *time) {
 }
 
 const char* RTC_GetDayName(uint8_t dayOfWeek) {
-	return daysName[dayOfWeek%7];
+	return (const char*) pgm_read_word(&(daysName[dayOfWeek%7]));
 }
 
 uint8_t RTC_GetDayOfWeek() {

@@ -9,6 +9,8 @@
 
 #include "util/delay.h"
 
+#include "avr/pgmspace.h"
+
 #include "drv/LCD/HD44780.h"
 #include "../../framework/crc8.h"
 
@@ -23,14 +25,14 @@ static Error _1w_searchRom(struct OW_device* deviceList, uint8_t *cnt);
 
 #define _1W_ONE() \
 		PIN_CONFIG(OW_DDR, OW_DATA, PIN_INPUT);\
-		PIN_SET(OW_PORT,   OW_DATA, IN_HI_Z);\
-//		PIN_CONFIG(OW_DDR, PA1, PIN_INPUT);\
+		PIN_SET(OW_PORT,   OW_DATA, IN_HI_Z);
+//		PIN_CONFIG(OW_DDR, PA1, PIN_INPUT);
 //		PIN_SET(OW_PORT,   PA1, IN_HI_Z)
 
 #define _1W_ZERO() \
 		PIN_CONFIG(OW_DDR, OW_DATA, PIN_OUTPUT);\
-		PIN_SET(OW_PORT,   OW_DATA, OUT_LO);\
-//		PIN_CONFIG(OW_DDR, PA1, PIN_OUTPUT);\
+		PIN_SET(OW_PORT,   OW_DATA, OUT_LO);
+//		PIN_CONFIG(OW_DDR, PA1, PIN_OUTPUT);
 //		PIN_SET(OW_PORT,   PA1, OUT_LO)
 
 #define WAIT()__asm__ __volatile__ ("nop")
@@ -63,18 +65,18 @@ Error OW_Magic() {
 
 	if (cnt>0) {
 		LCD_GoTo(0, 1);
-		snprintf(text, 21, "%02X%02X%02X%02X%02X%02X%02X%02X %d%02X", list[0].dev.id[0], list[0].dev.id[1], list[0].dev.id[2], list[0].dev.id[3], list[0].dev.id[4], list[0].dev.id[5], list[0].dev.id[6], list[0].dev.id[7], ret, list[0].dev.laseredRom.family);
+		snprintf_P(text, 21, PSTR("%02X%02X%02X%02X%02X%02X%02X%02X %d%02X"), list[0].dev.id[0], list[0].dev.id[1], list[0].dev.id[2], list[0].dev.id[3], list[0].dev.id[4], list[0].dev.id[5], list[0].dev.id[6], list[0].dev.id[7], ret, list[0].dev.laseredRom.family);
 		LCD_WriteText(text);
 		LCD_GoTo(0, 3);
 		//snprintf(text, 21, "A: %08lx 0x%02X", (uint32_t) list[0].dev.laseredRom.sn, crc8(list[0].dev.id, 7));
-		snprintf(text, 21, "%02X%02X%02X%02X%02X%02X%02X%02X %d%02X", list[1].dev.id[0], list[1].dev.id[1], list[1].dev.id[2], list[1].dev.id[3], list[1].dev.id[4], list[1].dev.id[5], list[1].dev.id[6], list[1].dev.id[7], ret, list[1].dev.laseredRom.family);
+		snprintf_P(text, 21, PSTR("%02X%02X%02X%02X%02X%02X%02X%02X %d%02X"), list[1].dev.id[0], list[1].dev.id[1], list[1].dev.id[2], list[1].dev.id[3], list[1].dev.id[4], list[1].dev.id[5], list[1].dev.id[6], list[1].dev.id[7], ret, list[1].dev.laseredRom.family);
 		LCD_WriteText(text);
 //		LCD_GoTo(0, 3);
 //		snprintf(text, 21, "A: %-15ld", ++i);
 //		LCD_WriteText(text);
 	} else {
 		LCD_GoTo(0, 1);
-		snprintf(text, 21, "No device found :(");
+		snprintf_P(text, 21, PSTR("No device found :("));
 		LCD_WriteText(text);
 	}
 
