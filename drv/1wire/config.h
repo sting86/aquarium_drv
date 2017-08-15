@@ -9,7 +9,9 @@
 #define DRV_1WIRE_CONFIG_H_
 
 enum OW_FamilyCodes {
-	OW_Family_DS1820 = 0x10,
+	OW_Family_NULL    = 0x00,
+	OW_Family_DS1820  = 0x10,
+	OW_Family_DS18B20 = 0x28,
 };
 
 #define OW_PORT PORTA

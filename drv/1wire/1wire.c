@@ -12,6 +12,7 @@
 #include "avr/pgmspace.h"
 
 #include "drv/LCD/HD44780.h"
+#include "config.h"
 #include "../../framework/crc8.h"
 
 static Error _1w_reset(); //pill down for 480us data bus
@@ -21,7 +22,7 @@ static Error _1w_sendBit(uint8_t);//pull down for 6us then release for next 54us
 static Error _1w_readBit(uint8_t *bit);//drive the bus low for 6us, then after 9us sample bus for read.
 
 static Error _1w_sendByte(uint8_t byte);
-static Error _1w_searchRom(struct OW_device* deviceList, uint8_t *cnt);
+static Error _1w_searchRom(struct OW_device* deviceList, uint8_t *cnt /*in-out*/, uint8_t cmdId, enum OW_FamilyCodes familyCode);
 
 #define _1W_ONE() \
 		PIN_CONFIG(OW_DDR, OW_DATA, PIN_INPUT);\
@@ -51,29 +52,21 @@ Error OW_Initialize() {
 
 
 Error OW_Magic() {
-//	bool b;
 	char text[21];
 	Error ret;
-//	_1w_reset();
-//	b = _1w_isDevice();
+
 	struct OW_device list[2];
 	uint8_t cnt = 2;
 
-	//_1w_sendByte(CMD_SEARCH_ROM);
-
-	ret = _1w_searchRom(list, &cnt);
+	ret = _1w_searchRom(list, &cnt, CMD_SEARCH_ROM, OW_Family_NULL);
 
 	if (cnt>0) {
-		LCD_GoTo(0, 1);
-		snprintf_P(text, 21, PSTR("%02X%02X%02X%02X%02X%02X%02X%02X %d%02X"), list[0].dev.id[0], list[0].dev.id[1], list[0].dev.id[2], list[0].dev.id[3], list[0].dev.id[4], list[0].dev.id[5], list[0].dev.id[6], list[0].dev.id[7], ret, list[0].dev.laseredRom.family);
-		LCD_WriteText(text);
-		LCD_GoTo(0, 3);
-		//snprintf(text, 21, "A: %08lx 0x%02X", (uint32_t) list[0].dev.laseredRom.sn, crc8(list[0].dev.id, 7));
-		snprintf_P(text, 21, PSTR("%02X%02X%02X%02X%02X%02X%02X%02X %d%02X"), list[1].dev.id[0], list[1].dev.id[1], list[1].dev.id[2], list[1].dev.id[3], list[1].dev.id[4], list[1].dev.id[5], list[1].dev.id[6], list[1].dev.id[7], ret, list[1].dev.laseredRom.family);
-		LCD_WriteText(text);
-//		LCD_GoTo(0, 3);
-//		snprintf(text, 21, "A: %-15ld", ++i);
-//		LCD_WriteText(text);
+		uint8_t i;
+		for (i=0; i<MIN(cnt, 2); ++i) {
+			LCD_GoTo(0, i);
+			snprintf_P(text, 21, PSTR("%02X%02X%02X%02X%02X%02X%02X%02X %d%02X"), list[i].dev.id[0], list[i].dev.id[1], list[i].dev.id[2], list[i].dev.id[3], list[i].dev.id[4], list[i].dev.id[5], list[i].dev.id[6], list[i].dev.id[7], ret, list[i].dev.laseredRom.family);
+			LCD_WriteText(text);
+		}
 	} else {
 		LCD_GoTo(0, 1);
 		snprintf_P(text, 21, PSTR("No device found :("));
@@ -154,7 +147,7 @@ static Error _1w_sendByte(uint8_t byte) {
 	return ret;
 }
 
-static Error _1w_searchRom(struct OW_device* deviceList, uint8_t *cnt /*in-out*/) {
+static Error _1w_searchRom(struct OW_device* deviceList, uint8_t *cnt /*in-out*/, uint8_t cmdId, enum OW_FamilyCodes familyCode) {
 	Error ret = NO_ERROR;
 	uint8_t bit, compl;
 	uint8_t bitNo = 0, deviceNo = 0;
@@ -174,7 +167,7 @@ static Error _1w_searchRom(struct OW_device* deviceList, uint8_t *cnt /*in-out*/
 
 		if (!b) break; //there is no more devices to find.
 
-		_1w_sendByte(CMD_SEARCH_ROM);
+		_1w_sendByte(cmdId);
 
 		if (repeatIndex) {
 			for (i=0; i<=repeatIndex; ++i) {
@@ -184,6 +177,14 @@ static Error _1w_searchRom(struct OW_device* deviceList, uint8_t *cnt /*in-out*/
 				foundDevice.dev.devFullID |= ((uint64_t)status[i].lastValue<<i);
 			}
 			bitNo = repeatIndex+1;
+		} else if (familyCode != OW_Family_NULL) {
+			for (i=0; i<=7; ++i) {
+				_1w_readBit(&bit);
+				_1w_readBit(&compl);
+				_1w_sendBit(familyCode & (1<<i));
+			}
+			foundDevice.dev.laseredRom.family = familyCode;
+			bitNo = 7+1;
 		}
 
 		do {
