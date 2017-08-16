@@ -55,14 +55,17 @@ Error OW_Magic() {
 	char text[21];
 	Error ret;
 
-	struct OW_device list[2];
-	uint8_t cnt = 2;
+	struct OW_device list[4];
+	uint8_t cnt = 2, cnt2;
 
-	ret = _1w_searchRom(list, &cnt, CMD_SEARCH_ROM, OW_Family_NULL);
+	ret = _1w_searchRom(list, &cnt, CMD_SEARCH_ROM, OW_Family_DS18B20);//OW_Family_NULL);
+	cnt2=4-cnt;
+	ret = _1w_searchRom(&list[cnt], &cnt2, CMD_SEARCH_ROM, OW_Family_DS1820);//OW_Family_NULL);
+	cnt += cnt2;
 
 	if (cnt>0) {
 		uint8_t i;
-		for (i=0; i<MIN(cnt, 2); ++i) {
+		for (i=0; i<MIN(cnt, 4); ++i) {
 			LCD_GoTo(0, i);
 			snprintf_P(text, 21, PSTR("%02X%02X%02X%02X%02X%02X%02X%02X %d%02X"), list[i].dev.id[0], list[i].dev.id[1], list[i].dev.id[2], list[i].dev.id[3], list[i].dev.id[4], list[i].dev.id[5], list[i].dev.id[6], list[i].dev.id[7], ret, list[i].dev.laseredRom.family);
 			LCD_WriteText(text);
@@ -182,6 +185,7 @@ static Error _1w_searchRom(struct OW_device* deviceList, uint8_t *cnt /*in-out*/
 				_1w_readBit(&bit);
 				_1w_readBit(&compl);
 				_1w_sendBit(familyCode & (1<<i));
+				status[i].lastValue = (familyCode>>i) & 1;
 			}
 			foundDevice.dev.laseredRom.family = familyCode;
 			bitNo = 7+1;
@@ -201,8 +205,7 @@ static Error _1w_searchRom(struct OW_device* deviceList, uint8_t *cnt /*in-out*/
 					foundDevice.dev.devFullID |= ((uint64_t)bit<<bitNo);
 					_1w_sendBit(bit);
 					status[bitNo].lastValue = bit;
-				} else {//TODO: here should be the magic with finding another devices in another branches
-					//_1w_sendBit(0);
+				} else {
 					if (status[bitNo].forkDetected == 0) {
 						status[bitNo].forkDetected = 1;
 						status[bitNo].lastValue = 1;
@@ -234,10 +237,13 @@ static Error _1w_searchRom(struct OW_device* deviceList, uint8_t *cnt /*in-out*/
 		}
 		if (i<0) stop = true;
 
-		if (foundDevice.dev.devFullID != 0 && deviceNo < *cnt) {
-			deviceList[deviceNo].dev.devFullID = foundDevice.dev.devFullID;
+		if (ret == NO_ERROR) {
+			if (foundDevice.dev.devFullID != 0 && deviceNo < *cnt) {
+				deviceList[deviceNo].dev.devFullID = foundDevice.dev.devFullID;
+			}
+
+			++deviceNo;
 		}
-		++deviceNo;
 	} while (!stop);
 
 	*cnt = deviceNo;

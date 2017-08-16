@@ -42,7 +42,7 @@ Error RTC_Initialize (struct RTC_init *initParemeters);
 Error RTC_GetTime (struct RTC_Time *time);
 Error RTC_SetTime (struct RTC_Time *time);
 
-const char* RTC_GetDayName(uint8_t dayOfWeek);
+__flash const char* RTC_GetDayName(uint8_t dayOfWeek);
 uint8_t RTC_GetDayOfWeek();
 
 #endif /* DRV_RTC_RTC_H_ */

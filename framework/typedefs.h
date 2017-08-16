@@ -22,4 +22,9 @@ typedef unsigned char _u8;
 
 typedef _u8 bool;
 
+#ifndef __FLASH
+#define __flash
+#warning Using very old toolchain. Change it!!! Update avr-gcc >4.7
+#endif
+
 #endif /* TYPEDEFS_H_ */

@@ -138,7 +138,7 @@ int main (void) {
 	};
 
 	//TODO: Refactor LCD driver: add correction to write, change of mode (with/without cursor etc.)
-	const static char text[81] PROGMEM  ="ABCDEFGHIJKLMNOPRSTW"
+	__flash const static char text[81]  ="ABCDEFGHIJKLMNOPRSTW"
 	              "NIE TA LINIA :(     "
 	              "                    "
 		          "Maciek mowi:        ";//PRSTUVWXYZabcdefghijklmnoprstuvwxyz1234567890 [];'\\,./!@#$%^&*()`";
@@ -195,11 +195,12 @@ int main (void) {
 			char text[21];
 
 			struct RTC_Time time = {0};
-			PGM_P const dow = RTC_GetDayName(RTC_GetDayOfWeek());
+			//PGM_P const dow = RTC_GetDayName(RTC_GetDayOfWeek());
+			__flash const char* dow = RTC_GetDayName(RTC_GetDayOfWeek());
 
 			RTC_GetTime(&time);
 
-			LCD_GoTo(0, 2);
+			LCD_GoTo(0, 3);
 			snprintf_P(text, 21, PSTR("%S%04d%02d%02d %02d:%02d:%02d "), (dow), (uint16_t)time.year + RTC_BASE_YEAR, time.month, time.day, time.hour, time.min, time.sec);
 			LCD_WriteText(text);
 			updateTime = false;
