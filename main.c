@@ -9,6 +9,7 @@
 #include "avr/interrupt.h"
 #include "util/delay.h"
 #include "avr/pgmspace.h"
+#include <string.h>
 
 #include "drv/drv_time.h"
 #include "drv/LCD/HD44780.h"
@@ -17,6 +18,7 @@
 #include "drv/port/port.h"
 #include "drv/rtc/rtc.h"
 #include "drv/1wire/1wire.h"
+#include "drv/uart/uart.h"
 
 bool updateTime = false;
 
@@ -188,6 +190,51 @@ int main (void) {
 //		_delay_us(400);
 //	}
 	OW_Initialize();
+	UART_Initialize();
+
+	{
+		uint8_t customChar[] = {
+			0x18,
+			0x14,
+			0x20,
+			0xa,
+			0xe,
+			0x20,
+			0x2,
+			0x3,
+			0
+		};
+
+		LCD_WriteCommand(HD44780_CGRAM_SET);
+		LCD_WriteText((char*) customChar);
+		LCD_WriteCommand(HD44780_DDRAM_SET);
+
+		LCD_GoTo(3, 1);
+		LCD_WriteData(0);
+	}
+
+	{
+		drvUart *usart = NULL;
+
+		UART_Open(&usart);
+
+		UART_ConfigDataBits(usart, 8);
+		UART_ConfigParity(usart, UART_PARITY_NONE);
+		UART_ConfigBound(usart, 9600);
+		UART_ConfigStopBits(usart, UART_SB_ONE);
+
+		UART_Connect(usart);
+
+		while (1)
+		{
+			char dupa[] = "dupa ";
+			UART_WriteData(usart, (uint8_t*) dupa, (uint8_t) strlen(dupa));
+			_delay_ms(1000);
+		}
+
+		UART_Disconnect(usart);
+		UART_Close(usart);
+	}
 
 	while (1)
 	{
