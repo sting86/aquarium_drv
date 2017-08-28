@@ -227,6 +227,21 @@ int main (void) {
 
 		while (1)
 		{
+			if (updateTime) {
+				char text[21];
+
+				struct RTC_Time time = {0};
+				//PGM_P const dow = RTC_GetDayName(RTC_GetDayOfWeek());
+				__flash const char* dow = RTC_GetDayName(RTC_GetDayOfWeek());
+
+				RTC_GetTime(&time);
+
+				LCD_GoTo(0, 3);
+				snprintf_P(text, 21, PSTR("%S%04d%02d%02d %02d:%02d:%02d "), (dow), (uint16_t)time.year + RTC_BASE_YEAR, time.month, time.day, time.hour, time.min, time.sec);
+				LCD_WriteText(text);
+				updateTime = false;
+			}
+
 			char dupa[] = "dupa ";
 			UART_WriteData(usart, (uint8_t*) dupa, (uint8_t) strlen(dupa));
 			_delay_ms(1000);

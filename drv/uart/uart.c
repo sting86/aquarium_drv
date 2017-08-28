@@ -12,6 +12,7 @@
 #include <string.h>
 
 #include "drv/LCD/HD44780.h"
+#include "framework/fifo.h"
 
 struct usartPort {
 	bool isOpened;//reserve a port
@@ -21,40 +22,37 @@ struct usartPort {
 	enum UARTParity parity;
 	enum UARTStopBits stopBits;
 	enum UARTHwFlowCtrl flowControl;
-	uint8_t txBuffer[TX_BUFF_SIZE];
-	uint8_t rxBuffer[RX_BUFF_SIZE];
-	uint8_t rxStart;
-	uint8_t rxEnd;
-	uint8_t txStart;
-	uint8_t txEnd;
+
+	struct fifo *txBuffer;
+	struct fifo *rxBuffer;
 	bool isTransmiting;
 };
 
+struct fifo txFifo;
+struct fifo rxFifo;
+uint8_t txBuffer[TX_BUFF_SIZE];
+uint8_t rxBuffer[RX_BUFF_SIZE];
+
 volatile struct usartPort devUsart = {0};//make it an array if more usarts available, add a handling of this case.
 
-ISR(USART_RXC_vect, ISR_NOBLOCK) {
-	if (devUsart.rxEnd != devUsart.rxStart) {
-		uint8_t i = devUsart.rxStart;
-		devUsart.rxStart++;
-		if (devUsart.rxStart >= RX_BUFF_SIZE) {
-			devUsart.rxStart = 0;
-		}
+ISR(USART_RXC_vect, ISR_BLOCK) {
+	if (Fifo_Pop(devUsart.rxBuffer, UDR) == NO_ERROR) {
+		//TODO: callback
+		char d;
+		Fifo_Pull(devUsart.rxBuffer,(uint8_t*) &d);
+		LCD_WriteData(d);
 
-		devUsart.rxBuffer[i] = UDR;
-	} //else error, buffer overflow
+	} else {
+		//TODO: error handling
+	}
 }
 
 ISR(USART_TXC_vect, ISR_NOBLOCK) {
-	if (devUsart.txEnd != devUsart.txStart) {
-		//uint8_t i = devUsart.txStart;
-		devUsart.txStart++;
-		if (devUsart.txStart >= TX_BUFF_SIZE) {
-			devUsart.txStart = 0;
-		}
+	uint8_t data;
+	if (Fifo_Pull(devUsart.txBuffer, &data) == NO_ERROR) {
+		LCD_WriteData(data);
 
-		LCD_WriteData(devUsart.txBuffer[devUsart.txStart]);
-
-		UDR = devUsart.txBuffer[devUsart.txStart];
+		UDR = data;
 	} else {
 		devUsart.isTransmiting = false;
 	}
@@ -62,7 +60,14 @@ ISR(USART_TXC_vect, ISR_NOBLOCK) {
 
 
 Error UART_Initialize() {
-	return NO_ERROR;
+	Error ret = NO_ERROR;
+
+	devUsart.rxBuffer = &rxFifo;
+	devUsart.txBuffer = &txFifo;
+	ret = Fifo_Initialize(devUsart.rxBuffer, rxBuffer, RX_BUFF_SIZE);
+	ret |= Fifo_Initialize(devUsart.txBuffer, txBuffer, TX_BUFF_SIZE);
+
+	return ret;
 }
 
 Error UART_Open(drvUart **drv) {
@@ -104,7 +109,7 @@ Error UART_Connect(drvUart *drv) {
 	} else {
 		/* Enable receiver and transmitter */
 		/* Enable interrupt for receive and transmit */
-		UCSRB |= (1<<RXEN)|(1<<TXEN)|(1<<RXCIE)|(1<<TXCIE);
+		UCSRB |= ((1<<RXEN)|(1<<TXEN)|(1<<RXCIE)|(1<<TXCIE));
 		drv->isConnected = true;
 	}
 	return ret;
@@ -117,10 +122,10 @@ Error UART_Disconnect(drvUart *drv) {
 	if (!drv->isOpened) return ERROR_INVALID_PARAMETER;
 
 	if (drv->isConnected) {
-		drv->isOpened = false;
 		/* Disable receiver and transmitter */
 		/* Disable interrupt for receive and transmit */
 		UCSRB &= ~((1<<RXEN)|(1<<TXEN)|(1<<RXCIE)|(1<<TXCIE));
+		drv->isConnected = false;
 	}
 	return ret;
 }
@@ -251,31 +256,26 @@ Error UART_ReadText(drvUart *drv, char *buffer, uint8_t *size /*in-out*/);
 
 Error UART_WriteData(drvUart *drv, uint8_t *buffer, uint8_t size) {
 	Error ret = NO_ERROR;
+	uint8_t i;
 
 	if (drv == NULL) return ERROR_INVALID_PARAMETER;
 	if (buffer == NULL) return ERROR_INVALID_PARAMETER;
 	if (!drv->isOpened) return ERROR_INVALID_PARAMETER;
 	if (!drv->isConnected) return ERROR_INVALID_OPERATION;
 
-	memcpy(drv->txBuffer + drv->txEnd, buffer, MIN(drv->txEnd+size, TX_BUFF_SIZE - drv->txEnd));
-	if (TX_BUFF_SIZE - drv->txEnd < size) {
-		memcpy(drv->txBuffer, buffer, MIN(drv->txStart, size - (TX_BUFF_SIZE - drv->txEnd)));
+	for (i=0; i<size; ++i) {
+		ret = Fifo_Pop(drv->txBuffer, buffer[i]);
+		if (ret != NO_ERROR) {
+			break;
+		}
 	}
 
-	if (drv->txStart < size - (TX_BUFF_SIZE - drv->txEnd)) {
-		ret = ERROR_INSUFFICIENT_BUFFER;
-	}
-
-	if (TX_BUFF_SIZE - drv->txEnd < size) {
-		drv->txEnd = size - (TX_BUFF_SIZE - drv->txEnd);
-	} else {
-		drv->txEnd += (size != 0) ? size - 1: 0;
-	}
-
-	if (!drv->isTransmiting) {
-		LCD_WriteData(drv->txBuffer[drv->txStart]);
+	if (!drv->isTransmiting) { //start transmition
+		uint8_t data;
+		Fifo_Pull(drv->txBuffer, &data);
+		LCD_WriteData(data);
 		drv->isTransmiting = true;
-		UDR = drv->txBuffer[drv->txStart];
+		UDR = data;
 	}
 	return ret;
 }
@@ -283,8 +283,6 @@ Error UART_WriteData(drvUart *drv, uint8_t *buffer, uint8_t size) {
 Error UART_WriteData_P(drvUart *drv, uint8_t const *buffer, uint8_t size);
 Error UART_ReadData(drvUart *drv, uint8_t *buffer, uint8_t *size /*in-out*/) {
 	Error ret = NO_ERROR;
-	uint8_t dataToRead;
-	uint8_t copied = 0;
 
 	if (drv == NULL) return ERROR_INVALID_PARAMETER;
 	if (buffer == NULL) return ERROR_INVALID_PARAMETER;
@@ -292,24 +290,6 @@ Error UART_ReadData(drvUart *drv, uint8_t *buffer, uint8_t *size /*in-out*/) {
 	if (!drv->isOpened) return ERROR_INVALID_PARAMETER;
 	if (!drv->isConnected) return ERROR_INVALID_OPERATION;
 
-	dataToRead = (drv->rxEnd < drv->rxStart) ? (RX_BUFF_SIZE + drv->rxEnd - drv->rxStart) : (drv->rxEnd - drv->rxStart);
-
-	if (dataToRead > *size) {
-		ret = ERROR_INSUFFICIENT_BUFFER;
-		dataToRead = *size;
-	}
-
-	copied = MIN(dataToRead, TX_BUFF_SIZE - drv->txStart);
-	memcpy(buffer, drv->rxBuffer + drv->rxStart, copied);
-
-	if (drv->rxEnd < drv->rxStart) {
-		memcpy(buffer + copied, drv->rxBuffer, dataToRead - copied);
-	}
-
-//	memcpy(drv->txBuffer + drv->txEnd, buffer, MIN(drv->txStart+size, TX_BUFF_SIZE - drv->txEnd));
-//	if (TX_BUFF_SIZE - drv->txEnd < size) {
-//		memcpy(drv->txBuffer, buffer, MIN(drv->txStart, size - (TX_BUFF_SIZE - drv->txEnd)));
-//	}
 
 	return ret;
 }
