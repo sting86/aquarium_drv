@@ -25,6 +25,13 @@ struct usartPort {
 
 	struct fifo *txBuffer;
 	struct fifo *rxBuffer;
+
+	void (*onDataReceived) (drvUart *dev);
+	void (*onEndLineReceived) (drvUart *dev);
+	void (*onDataTransmited) (drvUart *dev);
+
+	bool CR_received;
+
 	bool isTransmiting;
 };
 
@@ -36,11 +43,26 @@ uint8_t rxBuffer[RX_BUFF_SIZE];
 volatile struct usartPort devUsart = {0};//make it an array if more usarts available, add a handling of this case.
 
 ISR(USART_RXC_vect, ISR_BLOCK) {
-	if (Fifo_Pop(devUsart.rxBuffer, UDR) == NO_ERROR) {
+	char d = UDR;
+	if (Fifo_Pop(devUsart.rxBuffer, d) == NO_ERROR) {
 		//TODO: callback
-		char d;
-		Fifo_Pull(devUsart.rxBuffer,(uint8_t*) &d);
-		LCD_WriteData(d);
+
+		//Fifo_Pull(devUsart.rxBuffer,(uint8_t*) &d);
+
+		if (devUsart.onDataReceived) {
+			devUsart.onDataReceived((drvUart *) &devUsart);
+		}
+
+		if (d == 13) {//TODO: support if EOL is CR, LF or CR+LF
+			devUsart.CR_received = true;
+		} else if (devUsart.CR_received) {
+			if (d == 10) {
+				if (devUsart.onEndLineReceived) {
+					devUsart.onEndLineReceived((drvUart *) &devUsart);
+				}
+			}
+			devUsart.CR_received = false;
+		}
 
 	} else {
 		//TODO: error handling
@@ -50,11 +72,15 @@ ISR(USART_RXC_vect, ISR_BLOCK) {
 ISR(USART_TXC_vect, ISR_NOBLOCK) {
 	uint8_t data;
 	if (Fifo_Pull(devUsart.txBuffer, &data) == NO_ERROR) {
-		LCD_WriteData(data);
+	//	LCD_WriteData(data);
 
 		UDR = data;
 	} else {
 		devUsart.isTransmiting = false;
+
+		if (devUsart.onDataTransmited) {
+			devUsart.onDataTransmited((drvUart *) &devUsart);
+		}
 	}
 }
 
@@ -70,7 +96,7 @@ Error UART_Initialize() {
 	return ret;
 }
 
-Error UART_Open(drvUart **drv) {
+Error UART_Open(drvUart **drv, struct uartInitParams *params) {
 	Error ret = NO_ERROR;
 	if (devUsart.isOpened) {
 		ret = ERROR_INVALID_OPERATION;
@@ -83,6 +109,32 @@ Error UART_Open(drvUart **drv) {
 		UCSRA |= 1<<U2X;
 		devUsart.isOpened = true;
 		*drv = (drvUart*) &devUsart;
+
+		if (params != NULL) {
+			if (params->boundRate > 0) {
+				ret = UART_ConfigBound(*drv, params->boundRate);
+			}
+
+			if (params->dataBits > 0) {
+				ret |= UART_ConfigDataBits(*drv, params->dataBits);
+			}
+
+			if (params->handShake != UART_HFC_NULL) {
+				ret |= UART_ConfigCtrlFlow(*drv, params->handShake);
+			}
+
+			if (params->parity != UART_PARITY_NULL) {
+				ret |= UART_ConfigParity(*drv, params->parity);
+			}
+
+			if (params->stopBits != UART_SB_NULL) {
+				ret |= UART_ConfigStopBits(*drv, params->stopBits);
+			}
+
+			(*drv)->onDataReceived    = params->onDataReceived;
+			(*drv)->onDataTransmited  = params->onDataTransmited;
+			(*drv)->onEndLineReceived = params->onEndLineReceived;
+		}
 	}
 	return ret;
 }
@@ -256,15 +308,15 @@ Error UART_ReadText(drvUart *drv, char *buffer, uint8_t *size /*in-out*/);
 
 Error UART_WriteData(drvUart *drv, uint8_t *buffer, uint8_t size) {
 	Error ret = NO_ERROR;
-	uint8_t i;
+	//uint8_t i;
 
 	if (drv == NULL) return ERROR_INVALID_PARAMETER;
 	if (buffer == NULL) return ERROR_INVALID_PARAMETER;
 	if (!drv->isOpened) return ERROR_INVALID_PARAMETER;
 	if (!drv->isConnected) return ERROR_INVALID_OPERATION;
 
-	for (i=0; i<size; ++i) {
-		ret = Fifo_Pop(drv->txBuffer, buffer[i]);
+	while (*buffer) {
+		ret = Fifo_Pop(drv->txBuffer, *buffer++);
 		if (ret != NO_ERROR) {
 			break;
 		}
@@ -282,7 +334,15 @@ Error UART_WriteData(drvUart *drv, uint8_t *buffer, uint8_t size) {
 
 Error UART_WriteData_P(drvUart *drv, uint8_t const *buffer, uint8_t size);
 Error UART_ReadData(drvUart *drv, uint8_t *buffer, uint8_t *size /*in-out*/) {
+	return NO_ERROR;
+}
+
+Error UART_ReadLine(drvUart *drv, char *buffer, uint8_t *size /*in-out*/) {
 	Error ret = NO_ERROR;
+	char d;
+	bool stop = false;
+	bool CR_read = false;
+	uint8_t bytesRead = 0;
 
 	if (drv == NULL) return ERROR_INVALID_PARAMETER;
 	if (buffer == NULL) return ERROR_INVALID_PARAMETER;
@@ -290,6 +350,43 @@ Error UART_ReadData(drvUart *drv, uint8_t *buffer, uint8_t *size /*in-out*/) {
 	if (!drv->isOpened) return ERROR_INVALID_PARAMETER;
 	if (!drv->isConnected) return ERROR_INVALID_OPERATION;
 
+	ret = Fifo_Pull(drv->rxBuffer, (uint8_t*) &d);
+	if (ret == NO_ERROR) ++bytesRead;
+
+	while (d != 0 && !stop && ret == NO_ERROR && bytesRead < *size-1) {
+		if (CR_read)
+		{
+			if (d == 10) {
+				bytesRead -= 2;
+				break;
+			} else {
+				buffer[bytesRead-2] = 13;
+				buffer[bytesRead-1] = d;
+			}
+			CR_read = false;
+		} else {
+			buffer[bytesRead-1] = d;
+		}
+
+		if (d == 13) {
+			CR_read = true;
+		}
+
+		ret = Fifo_Pull(drv->rxBuffer, (uint8_t*) &d);
+		if (ret == NO_ERROR) ++bytesRead;
+	}
+
+	if (bytesRead == *size) {
+		ret |= ERROR_INSUFFICIENT_BUFFER;
+	} else {
+		*size = bytesRead;
+	}
+
+	if (*size != 0) {
+		buffer[*size] = 0;
+	} else {
+		buffer[0] = 0;
+	}
 
 	return ret;
 }
