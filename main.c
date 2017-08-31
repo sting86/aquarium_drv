@@ -9,6 +9,9 @@
 #include "avr/interrupt.h"
 #include "util/delay.h"
 #include "avr/pgmspace.h"
+#include <string.h>
+
+#include "framework/typedefs.h"
 
 #include "drv/drv_time.h"
 #include "drv/LCD/HD44780.h"
@@ -17,8 +20,13 @@
 #include "drv/port/port.h"
 #include "drv/rtc/rtc.h"
 #include "drv/1wire/1wire.h"
+#include "drv/uart/uart.h"
 
 bool updateTime = false;
+bool newLine = false;
+static void _onEOLRecv (drvUart *drv) {
+	newLine = true;
+}
 
 static void _onKeyCbf (enum KbdKey key, enum KbdState state) {
 //	char text[21];
@@ -188,6 +196,152 @@ int main (void) {
 //		_delay_us(400);
 //	}
 	OW_Initialize();
+	UART_Initialize();
+
+	{
+		__flash const static uint8_t customChar[] = {//TODO: move it to flash
+			//null
+			(__flash const uint8_t) 0x18,
+			(__flash const uint8_t) 0x14,
+			(__flash const uint8_t) 0x20,
+			(__flash const uint8_t) 0xa,
+			(__flash const uint8_t) 0xe,
+			(__flash const uint8_t) 0x20,
+			(__flash const uint8_t) 0x2,
+			(__flash const uint8_t) 0x3,
+			//anthena
+			(__flash const uint8_t) 0x20,
+			(__flash const uint8_t) 0x15,
+			(__flash const uint8_t) 0x15,
+			(__flash const uint8_t) 0xe,
+			(__flash const uint8_t) 0x4,
+			(__flash const uint8_t) 0x4,
+			(__flash const uint8_t) 0x4,
+			(__flash const uint8_t) 0x20,
+			//signal max
+			(__flash const uint8_t) 0x1e,
+			(__flash const uint8_t) 0x20,
+			(__flash const uint8_t) 0x1c,
+			(__flash const uint8_t) 0x20,
+			(__flash const uint8_t) 0x18,
+			(__flash const uint8_t) 0x20,
+			(__flash const uint8_t) 0x18,
+			(__flash const uint8_t) 0x20,
+			//signal NORMAL
+			(__flash const uint8_t) 0x20,
+			(__flash const uint8_t) 0x20,
+			(__flash const uint8_t) 0x1c,
+			(__flash const uint8_t) 0x20,
+			(__flash const uint8_t) 0x18,
+			(__flash const uint8_t) 0x20,
+			(__flash const uint8_t) 0x18,
+			(__flash const uint8_t) 0x20,
+			//signal low
+			(__flash const uint8_t) 0x20,
+			(__flash const uint8_t) 0x20,
+			(__flash const uint8_t) 0x20,
+			(__flash const uint8_t) 0x20,
+			(__flash const uint8_t) 0x18,
+			(__flash const uint8_t) 0x20,
+			(__flash const uint8_t) 0x18,
+			(__flash const uint8_t) 0x20,
+			//signal none
+			(__flash const uint8_t) 0x20,
+			(__flash const uint8_t) 0x20,
+			(__flash const uint8_t) 0x20,
+			(__flash const uint8_t) 0x20,
+			(__flash const uint8_t) 0x20,
+			(__flash const uint8_t) 0x20,
+			(__flash const uint8_t) 0x18,
+			(__flash const uint8_t) 0x20,
+
+			0x8,
+			0x14,
+			0x8,
+			0x3,
+			0x4,
+			0x4,
+			0x3,
+			0x20,
+
+			(__flash const uint8_t) 0x0,
+		};
+
+		LCD_WriteCommand(HD44780_CGRAM_SET);
+		LCD_WriteTextP((const char*) customChar);
+		LCD_WriteCommand(HD44780_DDRAM_SET);
+
+		LCD_GoTo(3, 1);
+		LCD_WriteData(0);
+		LCD_WriteData(1);
+		LCD_WriteData(2);
+		LCD_WriteData(3);
+		LCD_WriteData(4);
+		LCD_WriteData(5);
+		LCD_WriteData(6);
+	}
+
+	{
+		drvUart *usart = NULL;
+		struct uartInitParams params = {
+				.parity = UART_PARITY_NONE,
+				.dataBits = 8,
+				.boundRate = 9600,
+				.stopBits = UART_SB_ONE,
+				.handShake = UART_HFC_NULL,
+				.onEndLineReceived = _onEOLRecv,
+		};
+
+		UART_Open(&usart, &params);
+
+		UART_ConfigDataBits(usart, 8);
+		UART_ConfigParity(usart, UART_PARITY_NONE);
+		UART_ConfigBound(usart, 9600);
+		UART_ConfigStopBits(usart, UART_SB_ONE);
+
+		UART_Connect(usart);
+
+		while (1)
+		{
+			if (updateTime) {
+				char text[21];
+
+				struct RTC_Time time = {0};
+				//PGM_P const dow = RTC_GetDayName(RTC_GetDayOfWeek());
+				__flash const char* dow = RTC_GetDayName(RTC_GetDayOfWeek());
+
+				RTC_GetTime(&time);
+
+				LCD_GoTo(0, 3);
+				snprintf_P(text, 21, PSTR("%S%04d%02d%02d %02d:%02d:%02d "), (dow), (uint16_t)time.year + RTC_BASE_YEAR, time.month, time.day, time.hour, time.min, time.sec);
+				LCD_WriteText(text);
+				updateTime = false;
+			}
+
+			if (newLine) {
+				char text[50];
+				char s[51] = {0};
+				uint8_t size = 50;
+				UART_ReadLine(usart, text, &size);
+
+				//LCD_WriteText(text);
+
+				newLine = false;
+				snprintf_P	(s, 51, PSTR("czyt: %s, %u"), text, size);
+
+				LCD_WriteText(s);
+
+
+			}
+
+//			char dupa[] = "dupa ";
+//			UART_WriteData(usart, (uint8_t*) dupa, (uint8_t) strlen(dupa));
+			_delay_ms(100);
+		}
+
+		UART_Disconnect(usart);
+		UART_Close(usart);
+	}
 
 	while (1)
 	{

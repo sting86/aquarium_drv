@@ -19,13 +19,18 @@ typedef enum {
 	ERROR_INDEX_OUT_OF_RANGE,
 
 	ERROR_INSUFFICIENT_RESOURCES, //e.g. no more memory to allocate (malloc)
-	ERROR_INSUFFICIENT_BUFFER, //no more space in buffer
+
+	ERROR_INSUFFICIENT_BUFFER,   //no more space in buffer
+	ERROR_EMPTY_BUFFER,          //no more to read from buffer
 	ERROR_BUFFER_NULL,
 
 	ERROR_UNINITIALIZED,
+	ERROR_INVALID_OPERATION,
 
 	ERROR_BUS_ERROR,
 	ERROR_CRC_ERROR,
+
+	ERROR_NOT_IMPLEMENTED,
 
 	ERROR_COUNT
 } Error;
