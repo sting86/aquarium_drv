@@ -301,7 +301,7 @@ int main (void) {
 
 		UART_Connect(usart);
 
-		while (1)
+		while (0)
 		{
 			if (updateTime) {
 				char text[21];
