@@ -155,6 +155,18 @@ int main (void) {
 		DDRB |= 1<<PB4;
 		//turn on LCD
 		PORTB &= ~(1<<PB4);
+		_delay_ms(500);
+		PORTB |= (1<<PB4);
+		_delay_ms(500);
+		PORTB &= ~(1<<PB4);
+		_delay_ms(500);
+		PORTB |= (1<<PB4);
+		_delay_ms(500);
+		PORTB &= ~(1<<PB4);
+		_delay_ms(500);
+		PORTB |= (1<<PB4);
+		_delay_ms(500);
+		PORTB &= ~(1<<PB4);
 
 		//piezzo?
 		DDRB |= 1<<PB2;
@@ -334,8 +346,6 @@ int main (void) {
 
 			}
 
-//			char dupa[] = "dupa ";
-//			UART_WriteData(usart, (uint8_t*) dupa, (uint8_t) strlen(dupa));
 			_delay_ms(100);
 		}
 
@@ -359,8 +369,44 @@ int main (void) {
 			LCD_WriteText(text);
 			updateTime = false;
 		}
-		OW_Magic();
 
+		{
+			struct OW_device list[4];
+			int8_t temp;
+			uint8_t cnt = 2, rest=100; //rest cannot be higher than 100
+			uint16_t tempStamp;
+
+			OW_SearchRom(list, &cnt, OW_Family_NULL);
+
+			if (cnt>0) {
+				static uint8_t index = 0;
+				++index;
+				index = index % cnt;
+
+				OW_DS18x20_StartConversion(&list[index]);
+				_delay_ms(800);
+
+				OW_DS18x20_ReadTemp(&list[index], &tempStamp);
+
+				if (list[index].dev.laseredRom.family == OW_Family_DS18B20) {
+					OW_DS18b20_ConvertTemp(tempStamp, &temp, &rest);
+				} else if (list[index].dev.laseredRom.family == OW_Family_DS1820) {
+					OW_DS1820_ConvertTemp(tempStamp, &temp, &rest);
+				}
+
+				if (rest < 100) {
+					char text[21];
+					LCD_GoTo(0, 1);
+					snprintf_P(text, 21, PSTR("Temp[%d]: %d,%02d\6     "), index, temp, rest);
+					LCD_WriteText(text);
+				}
+			} else {
+				char text[21];
+				LCD_GoTo(0, 1);
+				snprintf_P(text, 21, PSTR("No device found :(  "));
+				LCD_WriteText(text);
+			}
+		}
 
 		_delay_ms(100);
 	}

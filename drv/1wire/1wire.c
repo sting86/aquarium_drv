@@ -6,35 +6,17 @@
  */
 
 #include "1wire.h"
+#include "1wire_internal.h"
 
 #include "util/delay.h"
 
 #include "avr/pgmspace.h"
 
+#include <string.h>
+
 #include "drv/LCD/HD44780.h"
 #include "config.h"
 #include "../../framework/crc8.h"
-
-static Error _1w_reset(); //pill down for 480us data bus
-static bool  _1w_isDevice(); //Sample the bus for slave response (240us)
-static Error _1w_sendBit(uint8_t);//pull down for 6us then release for next 54us (1)
-                                  //or pull down for 60us(0)
-static Error _1w_readBit(uint8_t *bit);//drive the bus low for 6us, then after 9us sample bus for read.
-
-static Error _1w_sendByte(uint8_t byte);
-static Error _1w_searchRom(struct OW_device* deviceList, uint8_t *cnt /*in-out*/, uint8_t cmdId, enum OW_FamilyCodes familyCode);
-
-//#define _1W_ONE() \
-//		PIN_CONFIG(OW_DDR, OW_DATA, PIN_INPUT);\
-//		PIN_SET(OW_PORT,   OW_DATA, IN_HI_Z);
-////		PIN_CONFIG(OW_DDR, PA1, PIN_INPUT);
-////		PIN_SET(OW_PORT,   PA1, IN_HI_Z)
-//
-//#define _1W_ZERO() \
-//		PIN_CONFIG(OW_DDR, OW_DATA, PIN_OUTPUT);\
-//		PIN_SET(OW_PORT,   OW_DATA, OUT_LO);
-//		PIN_CONFIG(OW_DDR, PA1, PIN_OUTPUT);
-//		PIN_SET(OW_PORT,   PA1, OUT_LO)
 
 #define _1W_ONE() \
 	OW_DDR &= ~(1<<OW_DATA)
@@ -57,78 +39,7 @@ Error OW_Initialize() {
 }
 
 
-Error OW_Magic() {
-	char text[21];
-	Error ret;
-
-	struct OW_device list[4];
-	uint8_t cnt = 2, cnt2;
-
-	ret = _1w_searchRom(list, &cnt, CMD_SEARCH_ROM, OW_Family_DS18B20);//OW_Family_NULL);
-	cnt2=4-cnt;
-	ret = _1w_searchRom(&list[cnt], &cnt2, CMD_SEARCH_ROM, OW_Family_DS1820);//OW_Family_NULL);
-	cnt += cnt2;
-
-	if (cnt>0) {
-
-		uint16_t temp = 0;
-		//ow_reset();
-		_1w_reset();
-		_1w_isDevice();
-		//ow_write_byte(0xCC);
-		//OW_MatchRom(&list[0]);
-		//ow_write_byte(0x44);
-		_1w_sendByte(0xCC);
-		_1w_sendByte(CMD_CONVERT_TEMP);
-		//for (uint8_t a = 0; a < ; a++) _delay_ms(30);
-
-		_delay_ms(500);
-//		ow_reset();
-//		ow_write_byte(0xCC);
-//		ow_write_byte(0xBE);
-		_1w_reset();
-		_1w_isDevice();
-		//OW_MatchRom(&list[0]);
-		_1w_sendByte(0xCC);
-		_1w_sendByte(0xbe);
-		for (uint8_t a = 0; a < 16; a++) {
-			uint8_t bit = 0;
-			_1w_readBit(&bit);
-
-			temp |= ((uint16_t) bit << a);
-		}
-
-
-		//		lsb = ow_read_byte();
-		//		msb = ow_read_byte();
-
-				LCD_GoTo(0, 1);
-				snprintf_P(text, 21, PSTR("Temp: %x"), temp);
-				LCD_WriteText(text);
-	} else {
-				LCD_GoTo(0, 1);
-				snprintf_P(text, 21, PSTR("No device found :("));
-				LCD_WriteText(text);
-	}
-
-//	if (cnt>0) {
-//		uint8_t i;
-//		for (i=0; i<MIN(cnt, 4); ++i) {
-//			LCD_GoTo(0, i);
-//			snprintf_P(text, 21, PSTR("%02X%02X%02X%02X%02X%02X%02X%02X %d%02X"), list[i].dev.id[0], list[i].dev.id[1], list[i].dev.id[2], list[i].dev.id[3], list[i].dev.id[4], list[i].dev.id[5], list[i].dev.id[6], list[i].dev.id[7], ret, list[i].dev.laseredRom.family);
-//			LCD_WriteText(text);
-//		}
-//	} else {
-//		LCD_GoTo(0, 1);
-//		snprintf_P(text, 21, PSTR("No device found :("));
-//		LCD_WriteText(text);
-//	}
-
-	return ret;
-}
-
-
-static Error _1w_reset() {
+Error _1w_reset() {
 
 	_1W_ZERO();
 	_delay_us(480);
@@ -137,7 +48,7 @@ static Error _1w_reset() {
 	return NO_ERROR;
 }
 
-static bool _1w_isDevice() {
+bool _1w_isDevice() {
 	uint8_t i;
 	bool ret = false;
 
@@ -151,14 +62,14 @@ static bool _1w_isDevice() {
 	return ret;
 }
 
-static Error _1w_sendBit(uint8_t bit) {
+Error _1w_sendBit(uint8_t bit) {
 	_1W_ZERO();
 
 	_delay_us(1);
 
 	if (bit != 0) {
 		_1W_ONE();
-		_delay_us(20);
+		_delay_us(55);
 	} else {
 		_delay_us(60);
 	}
@@ -168,7 +79,7 @@ static Error _1w_sendBit(uint8_t bit) {
 	return NO_ERROR;
 }
 
-static Error _1w_readBit(uint8_t *bit) {
+Error _1w_readBit(uint8_t *bit) {
 	if (bit == NULL) return ERROR_INVALID_PARAMETER;
 
 	_1W_ZERO();
@@ -193,7 +104,7 @@ static Error _1w_readBit(uint8_t *bit) {
 	return NO_ERROR;
 }
 
-static Error _1w_sendByte(uint8_t byte) {
+Error _1w_sendByte(uint8_t byte) {
 	Error ret = NO_ERROR;
 	int8_t i;
 	for (i=0; i<8; ++i) {
@@ -203,7 +114,7 @@ static Error _1w_sendByte(uint8_t byte) {
 	return ret;
 }
 
-static Error _1w_searchRom(struct OW_device* deviceList, uint8_t *cnt /*in-out*/, enum OW_CMD cmdId, enum OW_FamilyCodes familyCode) {
+Error _1w_searchRom(struct OW_device* deviceList, uint8_t *cnt /*in-out*/, enum OW_CMD cmdId, enum OW_FamilyCodes familyCode) {
 	Error ret = NO_ERROR;
 	uint8_t bit, compl;
 	uint8_t bitNo = 0, deviceNo = 0;
@@ -211,7 +122,9 @@ static Error _1w_searchRom(struct OW_device* deviceList, uint8_t *cnt /*in-out*/
 	uint8_t repeatIndex = 0;
 	bool stop = false;
 	struct OW_device foundDevice = {.dev.devFullID = 0};
-	static struct owSearchStatus status[64] = {0};
+	static struct owSearchStatus status[_1W_ROM_SIZE];
+
+	memset(status, 0, sizeof(*status)*_1W_ROM_SIZE);
 
 	do {
 		bool b;
@@ -246,12 +159,7 @@ static Error _1w_searchRom(struct OW_device* deviceList, uint8_t *cnt /*in-out*/
 
 		do {
 			_1w_readBit(&bit);
-			PIN_CONFIG(OW_DDR, PA1, PIN_OUTPUT);
-			PIN_SET(OW_PORT,   PA1, OUT_LO);
-
 			_1w_readBit(&compl);
-			PIN_CONFIG(OW_DDR, PA1, PIN_INPUT);
-			PIN_SET(OW_PORT,   PA1, IN_HI_Z);
 
 			if (bit != 1 || compl != 1) {
 				if (bit != compl) {
@@ -307,7 +215,7 @@ static Error _1w_searchRom(struct OW_device* deviceList, uint8_t *cnt /*in-out*/
 Error OW_SearchRom(struct OW_device* deviceList, uint8_t *cnt /*in-out*/, enum OW_FamilyCodes familyCode) {
 	return _1w_searchRom(deviceList, cnt, CMD_SEARCH_ROM, familyCode);
 }
-Error OW_SearchAlarm(struct OW_device* deviceList, uint8_t *cnt /*in-out*/, enum OW_FamilyCodes familyCode) {
+Error OW_DS18x20_SearchAlarm(struct OW_device* deviceList, uint8_t *cnt /*in-out*/, enum OW_FamilyCodes familyCode) {
 	return _1w_searchRom(deviceList, cnt, CMD_SEARCH_ALARM, familyCode);
 }
 
@@ -315,7 +223,6 @@ Error OW_MatchRom(struct OW_device* device) {
 	Error ret = NO_ERROR;
 	uint8_t i=0;
 	uint64_t s = 0;
-	char text[21];
 
 	if (device == NULL) return ERROR_INVALID_PARAMETER;
 
@@ -328,14 +235,8 @@ Error OW_MatchRom(struct OW_device* device) {
 		s+= ((device->dev.devFullID >> i) & 1)<<i;
 
 	}
-	LCD_GoTo(0, 2);
-	snprintf(text, 21, "%lX%lX", (uint32_t) (device->dev.devFullID>>32), (uint32_t) device->dev.devFullID);
-	LCD_WriteText(text);
-	LCD_GoTo(0, 0);
-	snprintf(text, 21, "%lX%lX", (uint32_t) (s>>32), (uint32_t) s);
-	LCD_WriteText(text);
+
 	//foundDevice.dev.devFullID |= ((uint64_t)bit<<bitNo);
 
 	return ret;
 }
-
