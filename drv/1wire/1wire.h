@@ -12,12 +12,10 @@
 
 #include "config.h"
 #include "commands.h"
+
 #include "drv/port/port.h"
 #include "framework/error.h"
 #include "framework/typedefs.h"
-
-
-
 
 struct OW_device {
 	union {
@@ -35,9 +33,12 @@ struct OW {
   bool work;
 };
 
-Error OW_Initialize();
-//Error OW_Init();
-Error OW_Magic();
+#include "ds18x20.h"
 
+Error OW_Initialize();
+
+Error OW_SearchRom(struct OW_device* deviceList, uint8_t *cnt /*in-out*/, enum OW_FamilyCodes familyCode);
+
+Error OW_MatchRom(struct OW_device* device);
 
 #endif /* DRV_1WIRE_1WIRE_H_ */
