@@ -22,6 +22,8 @@
 #include "drv/1wire/1wire.h"
 #include "drv/uart/uart.h"
 
+#include "framework/db/db.h"
+
 bool updateTime = false;
 bool newLine = false;
 static void _onEOLRecv (drvUart *drv) {
@@ -197,6 +199,54 @@ int main (void) {
 //	}
 	OW_Initialize();
 	UART_Initialize();
+	DB_Initialize();
+
+	{
+		DBInstance *db = NULL;
+
+		DB_GetDB(&db);
+
+		while (1) {
+			Error ret = NO_ERROR;
+
+			struct RTC_Time alarm = {0};
+			if (updateTime) {
+				char text[21];
+
+				struct RTC_Time time = {0};
+				//PGM_P const dow = RTC_GetDayName(RTC_GetDayOfWeek());
+				__flash const char* dow = RTC_GetDayName(RTC_GetDayOfWeek());
+
+				RTC_GetTime(&time);
+
+				LCD_GoTo(0, 3);
+				snprintf_P(text, 21, PSTR("%S%04d%02d%02d %02d:%02d:%02d "), (dow), (uint16_t)time.year + RTC_BASE_YEAR, time.month, time.day, time.hour, time.min, time.sec);
+				LCD_WriteText(text);
+				updateTime = false;
+
+				if (time.sec == 10) {
+					ret = DB_PutEntry(db, DB_FIELD_ID_LIGHT_ON, (uint8_t*) &time, sizeof(struct RTC_Time));
+				}
+			}
+			uint8_t size = sizeof(struct RTC_Time);
+			DB_GetEntry(db, DB_FIELD_ID_LIGHT_ON, (uint8_t*) &alarm, &size);
+
+			if (size != 0) {
+				char text[21];
+				LCD_GoTo(0, 0);
+				snprintf_P(text, 21, PSTR("%04d%02d%02d %02d:%02d:%02d "), (uint16_t)alarm.year + RTC_BASE_YEAR, alarm.month, alarm.day, alarm.hour, alarm.min, alarm.sec);
+				LCD_WriteText(text);
+				updateTime = false;
+			} else {
+				char text[21];
+				LCD_GoTo(0, 0);
+				snprintf_P(text, 21, PSTR("%d %d --:--:-- "), ret, size);
+				LCD_WriteText(text);
+				updateTime = false;
+			}
+			_delay_ms(100);
+		}
+	}
 
 	{
 		__flash const static uint8_t customChar[] = {//TODO: move it to flash
@@ -341,6 +391,28 @@ int main (void) {
 
 		UART_Disconnect(usart);
 		UART_Close(usart);
+	}
+
+	while (1)
+	{
+		if (updateTime) {
+			char text[21];
+
+			struct RTC_Time time = {0};
+			//PGM_P const dow = RTC_GetDayName(RTC_GetDayOfWeek());
+			__flash const char* dow = RTC_GetDayName(RTC_GetDayOfWeek());
+
+			RTC_GetTime(&time);
+
+			LCD_GoTo(0, 3);
+			snprintf_P(text, 21, PSTR("%S%04d%02d%02d %02d:%02d:%02d "), (dow), (uint16_t)time.year + RTC_BASE_YEAR, time.month, time.day, time.hour, time.min, time.sec);
+			LCD_WriteText(text);
+			updateTime = false;
+		}
+		OW_Magic();
+
+
+		_delay_ms(100);
 	}
 
 	while (1)

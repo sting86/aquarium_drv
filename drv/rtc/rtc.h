@@ -17,25 +17,25 @@ struct RTC_init {
 	void (*onSecChangedCbf) ();
 };
 
-//struct RTC_Time {
-//	uint8_t sec : 6;//max value 60, 6 bits are enough
-//	uint8_t min : 6;
-//	uint8_t hour: 5;
-//	//TODO: for now implemented only for hh:mm:ss
-//	uint8_t day:  5;
-//	uint8_t month: 4;
-//	uint8_t year: 6; //assumption that there year between 2010 - 2073
-//};
-
 struct RTC_Time {
-	uint8_t sec;//max value 60, 6 bits are enough
-	uint8_t min;
-	uint8_t hour;
+	uint8_t sec : 6;//max value 60, 6 bits are enough
+	uint8_t min : 6;
+	uint8_t hour: 5;
 	//TODO: for now implemented only for hh:mm:ss
-	uint8_t day;
-	uint8_t month;
-	uint8_t year; //assumption that there year between 2010 - 2073
+	uint8_t day:  5;
+	uint8_t month: 4;
+	uint8_t year: 6; //assumption that there year between 2010 - 2073
 };
+
+//struct RTC_Time {
+//	uint8_t sec;//max value 60, 6 bits are enough
+//	uint8_t min;
+//	uint8_t hour;
+//	//TODO: for now implemented only for hh:mm:ss
+//	uint8_t day;
+//	uint8_t month;
+//	uint8_t year; //assumption that there year between 2010 - 2073
+//};
 
 
 Error RTC_Initialize (struct RTC_init *initParemeters);
